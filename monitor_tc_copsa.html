@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor TC · Copsa</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap');
+  :root {
+    --bg: #13131f; --surface: #1a1a24; --surface2: #22222e;
+    --border: #32324a; --accent: #d4ff3a; --text: #f2f0ff;
+    --muted: #9a98b8; --ok: #3dffa0; --warn: #ffe033;
+    --conflict: #ff6060; --pending: #aab4d8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; }
+
+  /* AUTH */
+  .auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 3rem 2.5rem; max-width: 420px; width: 100%; text-align: center; }
+  .auth-card h2 { font-family: 'Fraunces', serif; font-size: 1.6rem; font-weight: 300; margin-bottom: 0.5rem; }
+  .auth-card h2 em { color: var(--accent); font-style: italic; }
+  .auth-card p { font-size: 0.72rem; color: #9a98b8; margin-bottom: 2rem; line-height: 1.6; }
+  .btn-google { display: inline-flex; align-items: center; gap: 0.6rem; background: #fff; color: #1f2937; font-family: 'DM Mono', monospace; font-size: 0.7rem; font-weight: 500; padding: 0.7rem 1.5rem; border-radius: 4px; border: none; cursor: pointer; transition: opacity 0.15s; }
+  .btn-google:hover { opacity: 0.9; }
+  .btn-google svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .auth-note { font-size: 0.58rem; color: #9a98b8; margin-top: 1.2rem; }
+
+  /* APP */
+  header { padding: 1.75rem 2rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  h1 { font-family: 'Fraunces', serif; font-size: 1.8rem; font-weight: 300; letter-spacing: -0.02em; }
+  h1 em { color: var(--accent); font-style: italic; }
+  .subtitle { font-size: 0.62rem; color: #9a98b8; text-transform: uppercase; letter-spacing: 0.12em; margin-top: 0.2rem; }
+  .header-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; }
+  .scan-info { font-size: 0.68rem; color: #9a98b8; }
+  .scan-info strong { color: var(--accent); display: block; font-size: 0.75rem; }
+  .user-info { font-size: 0.68rem; color: #9a98b8; }
+  .user-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 5px var(--ok); margin-right: 5px; }
+  .header-btns { display: flex; gap: 0.5rem; }
+  .btn-refresh { background: var(--accent); color: #0f0f0f; border: none; padding: 0.5rem 1.2rem; font-family: 'DM Mono', monospace; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.06em; cursor: pointer; border-radius: 3px; text-transform: uppercase; }
+  .btn-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-logout { background: transparent; color: #9a98b8; border: 1px solid var(--border); padding: 0.5rem 1rem; font-family: 'DM Mono', monospace; font-size: 0.7rem; cursor: pointer; border-radius: 3px; }
+  .btn-logout:hover { color: var(--text); }
+
+  /* DAYS */
+  .toolbar { padding: 0.75rem 2rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+  .toolbar-label { font-size: 0.68rem; color: #9a98b8; text-transform: uppercase; letter-spacing: 0.08em; margin-right: 0.5rem; }
+  .day-btn { background: transparent; border: 1px solid var(--border); color: #9a98b8; font-family: 'DM Mono', monospace; font-size: 0.72rem; padding: 0.3rem 0.7rem; border-radius: 3px; cursor: pointer; }
+  .day-btn.active { background: var(--surface2); color: var(--text); border-color: #9a98b8; }
+
+  /* STATS */
+  .stats { display: flex; border-bottom: 1px solid var(--border); }
+  .stat { flex: 1; padding: 0.85rem 1rem; border-right: 1px solid var(--border); text-align: center; cursor: pointer; transition: background 0.15s; }
+  .stat:last-child { border-right: none; }
+  .stat:hover { background: var(--surface2); }
+  .stat.active-filter { background: var(--surface2); }
+  .stat-n { font-family: 'Fraunces', serif; font-size: 1.8rem; font-weight: 600; line-height: 1; }
+  .stat-l { font-size: 0.58rem; color: #9a98b8; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.2rem; }
+  .s-ok .stat-n { color: var(--ok); } .s-warn .stat-n { color: var(--warn); }
+  .s-conflict .stat-n { color: var(--conflict); } .s-pending .stat-n { color: var(--pending); }
+
+  /* LOADING */
+  .loading { padding: 4rem 2rem; text-align: center; }
+  .spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 0.75rem; color: #9a98b8; }
+  .loading-step { font-size: 0.72rem; color: var(--border); margin-top: 0.4rem; }
+
+  /* ERROR */
+  .error-bar { background: rgba(248,113,113,0.08); border: 1px solid var(--conflict); color: var(--conflict); font-size: 0.7rem; padding: 0.75rem 2rem; display: none; }
+
+  /* CARDS */
+  main { padding: 1.25rem 2rem; }
+  .section-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.15em; color: #9a98b8; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 0.75rem; margin-top: 1.25rem; }
+  .section-title:first-child { margin-top: 0; }
+  .cards { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; margin-bottom: 0.5rem; }
+  .card { background: var(--surface); padding: 1rem 1.25rem; display: grid; grid-template-columns: 8px 1fr auto; gap: 1rem; align-items: center; transition: background 0.15s; }
+  .card:hover { background: var(--surface2); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; align-self: start; margin-top: 0.4rem; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .dot.conflict { background: var(--conflict); box-shadow: 0 0 6px var(--conflict); }
+  .dot.pending { background: var(--pending); }
+  .card-top { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+  .cliente { font-family: 'Fraunces', serif; font-size: 0.95rem; font-weight: 600; }
+  .pedido { font-size: 0.62rem; color: #9a98b8; }
+  .vendedor { font-size: 0.68rem; background: var(--surface2); border: 1px solid var(--border); padding: 0.1rem 0.4rem; border-radius: 2px; color: #9a98b8; }
+  .accion { font-size: 0.72rem; padding: 0.35rem 0.6rem; border-left: 2px solid; border-radius: 2px; margin-bottom: 0.3rem; }
+  .accion.ok { background: rgba(74,222,128,0.07); border-color: var(--ok); color: var(--ok); }
+  .accion.warn { background: rgba(250,204,21,0.07); border-color: var(--warn); color: var(--warn); }
+  .accion.conflict { background: rgba(248,113,113,0.07); border-color: var(--conflict); color: var(--conflict); }
+  .accion.pending { background: rgba(148,163,184,0.05); border-color: var(--pending); color: var(--pending); }
+  .meta { font-size: 0.72rem; color: #cccadc; }
+  .tc-box { text-align: right; }
+  .tc-val { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 600; color: var(--accent); line-height: 1; }
+  .tc-val.warn { color: var(--warn); } .tc-val.pending { color: #9a98b8; font-size: 0.85rem; }
+  .tc-original { font-size: 0.68rem; color: #9a98b8; text-decoration: line-through; margin-top: 0.2rem; }
+  .tc-lbl { font-size: 0.56rem; color: #9a98b8; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.2rem; }
+  .empty { padding: 2.5rem; text-align: center; color: #9a98b8; font-size: 0.75rem; }
+  footer { padding: 1rem 2rem; border-top: 1px solid var(--border); font-size: 0.68rem; color: #9a98b8; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <h2>Monitor <em>TC</em></h2>
+    <p>Iniciá sesión con tu cuenta corporativa de Copsa para ver las solicitudes de fijación de tipo de cambio en tiempo real.</p>
+    <button class="btn-google" onclick="startAuth()">
+      <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Iniciar sesión con Google
+    </button>
+    <div class="auth-note">Solo lectura · Correos de sgaleano@petroleracopsa.com.ar</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen" style="display:none">
+  <header>
+    <div>
+      <h1>Monitor <em>TC</em></h1>
+      <div class="subtitle">Fijación de Tipo de Cambio · Copsa</div>
+    </div>
+    <div class="header-right">
+      <div class="user-info"><span class="user-dot"></span><span id="userEmail"></span></div>
+      <div class="scan-info"><strong id="lastScan">—</strong>último escaneo</div>
+      <div class="header-btns">
+        <button class="btn-refresh" id="btnRefresh" onclick="loadEmails()">↺ Actualizar</button>
+        <button class="btn-logout" onclick="logout()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <span class="toolbar-label">Período:</span>
+    <button class="day-btn" onclick="setDays(3,this)">3 días</button>
+    <button class="day-btn active" onclick="setDays(7,this)">7 días</button>
+    <button class="day-btn" onclick="setDays(15,this)">15 días</button>
+    <button class="day-btn" onclick="setDays(30,this)">30 días</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat s-ok" id="filter-ok" onclick="setFilter('ok')" style="cursor:pointer"><div class="stat-n" id="n-ok">—</div><div class="stat-l">Listos</div></div>
+    <div class="stat s-warn" id="filter-warn" onclick="setFilter('warn')" style="cursor:pointer"><div class="stat-n" id="n-warn">—</div><div class="stat-l">Con corrección</div></div>
+    <div class="stat s-conflict" id="filter-conflict" onclick="setFilter('conflict')" style="cursor:pointer"><div class="stat-n" id="n-conflict">—</div><div class="stat-l">Conflicto</div></div>
+    <div class="stat s-pending" id="filter-pending" onclick="setFilter('pending')" style="cursor:pointer"><div class="stat-n" id="n-pending">—</div><div class="stat-l">Pendientes</div></div>
+  </div>
+
+  <div class="error-bar" id="errorBar"></div>
+
+  <div id="loadingScreen" class="loading" style="display:none">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Buscando solicitudes...</div>
+    <div class="loading-step" id="loadingStep"></div>
+  </div>
+
+  <main id="main"></main>
+
+  <footer>
+    <span>Monitor TC · SAC Copsa · Powered by Claude AI</span>
+    <span id="footerInfo"></span>
+  </footer>
+</div>
+
+<script>
+let activeFilter = 'all';
+const CLIENT_ID = '479157354663-40rgdecsh4deifabn96t36ukacnaa1a1.apps.googleusercontent.com';
+const SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const CLAUDE_MODEL = 'claude-sonnet-4-5';
+const CLAUDE_KEY = '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';
+
+let accessToken = null;
+let daysBack = 7;
+
+// ── AUTH ──────────────────────────────────────────────
+function startAuth() {
+  const redirectUri = 'http://localhost:8080/monitor_tc_copsa.html';
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: SCOPE,
+    prompt: 'select_account'
+  });
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+}
+
+function checkAuth() {
+  // Token en el hash = venimos del redirect de Google
+  const hash = window.location.hash.substring(1);
+  const hashParams = new URLSearchParams(hash);
+  const tokenFromHash = hashParams.get('access_token');
+  if (tokenFromHash) {
+    accessToken = tokenFromHash;
+    sessionStorage.setItem('tc_token', tokenFromHash);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    showApp();
+    return;
+  }
+  // Token guardado en session
+  const stored = sessionStorage.getItem('tc_token');
+  if (stored) { accessToken = stored; showApp(); return; }
+  // Sin token: mostrar login
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+async function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (r.ok) {
+      const info = await r.json();
+      document.getElementById('userEmail').textContent = info.email;
+    }
+  } catch(e) {}
+  loadEmails();
+}
+
+function logout() {
+  sessionStorage.removeItem('tc_token');
+  accessToken = null;
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+function setDays(d, btn) {
+  daysBack = d;
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadEmails();
+}
+
+// ── GMAIL ─────────────────────────────────────────────
+async function gmailGet(endpoint) {
+  const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (r.status === 401) { sessionStorage.removeItem('tc_token'); logout(); throw new Error('Sesión expirada. Volvé a iniciar sesión.'); }
+  if (!r.ok) throw new Error(`Gmail error ${r.status}`);
+  return r.json();
+}
+
+function setLoading(show, text='', step='') {
+  document.getElementById('loadingScreen').style.display = show ? 'block' : 'none';
+  document.getElementById('main').style.display = show ? 'none' : 'block';
+  if (text) document.getElementById('loadingText').textContent = text;
+  if (step) document.getElementById('loadingStep').textContent = step;
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBar');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 8000);
+}
+
+async function loadEmails() {
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  setLoading(true, 'Buscando hilos...', `Últimos ${daysBack} días`);
+  document.getElementById('errorBar').style.display = 'none';
+
+  try {
+    const after = Math.floor((Date.now() - daysBack * 86400000) / 1000);
+    const query = `subject:"FIJACION TC" after:${after}`;
+    const search = await gmailGet(`threads?q=${encodeURIComponent(query)}&maxResults=50`);
+    const threads = search.threads || [];
+
+    if (threads.length === 0) {
+      setLoading(false);
+      renderCards([]);
+      btn.disabled = false;
+      return;
+    }
+
+    const details = [];
+    for (let i = 0; i < threads.length; i++) {
+      setLoading(true, `Leyendo hilo ${i+1} de ${threads.length}...`, '');
+      const d = await gmailGet(`threads/${threads[i].id}?format=full`);
+      details.push(d);
+    }
+
+    setLoading(true, 'Analizando con Claude AI...', 'Interpretando solicitudes y estados');
+    const results = await analyzeWithClaude(details);
+    setLoading(false);
+    renderCards(results);
+
+    const now = new Date();
+    const ts = `${now.toLocaleDateString('es-AR')} ${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}`;
+    document.getElementById('lastScan').textContent = ts;
+    document.getElementById('footerInfo').textContent = `${threads.length} hilos analizados`;
+
+  } catch(e) {
+    setLoading(false);
+    showError(e.message);
+  }
+  btn.disabled = false;
+}
+
+function extractText(payload) {
+  let text = '';
+  const decode = d => { try { return atob(d.replace(/-/g,'+').replace(/_/g,'/')); } catch(e) { return ''; } };
+  const walk = p => {
+    if (!p) return;
+    if (p.mimeType === 'text/plain' && p.body?.data) text += decode(p.body.data) + '\n';
+    if (p.parts) p.parts.forEach(walk);
+  };
+  walk(payload);
+  return text.slice(0, 2500);
+}
+
+function hdr(headers, name) {
+  return headers?.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+}
+
+// ── CLAUDE ────────────────────────────────────────────
+async function analyzeWithClaude(threads) {
+  const summaries = threads.map(t => ({
+    threadId: t.id,
+    messages: (t.messages || []).map(m => ({
+      from: hdr(m.payload?.headers, 'from'),
+      subject: hdr(m.payload?.headers, 'subject'),
+      date: hdr(m.payload?.headers, 'date'),
+      body: extractText(m.payload)
+    }))
+  }));
+
+  const prompt = `Analizá estos hilos de correo de Copsa Combustibles. Identificá solicitudes de fijación de tipo de cambio (TC).
+
+ACTORES:
+- Vendedores: Mariana De Marco, Mariela Sánchez, Nicolás Sabatino, Melisa Rodriguez (y otros)
+- Activadores (dan el OK): Deborah Mildanoglu, Belén Rojas, Jeniree Suarez, Laura Herlein
+- Matías Arguelles: Jefe de Créditos
+- Ariel: Gerente comercial → si pide fijar, SIEMPRE se hace como dijo Ariel
+
+REGLAS:
+- Si ya tiene "Fijado!!" en el hilo → ignorar (ignorar: true)
+- "ok" → activador dio OK, TC confirmado
+- "warn" → hay OK pero con TC diferente al original
+- "conflict" → Ariel intervino, usar su TC
+- "pending" → sin OK todavía
+- Si el hilo NO es una solicitud de fijación de TC → ignorar: true SIEMPRE
+
+HILOS:
+${JSON.stringify(summaries, null, 2)}
+
+Respondé SOLO JSON array sin markdown:
+[{
+  "threadId": "...",
+  "ignorar": false,
+  "estado": "ok|warn|conflict|pending",
+  "cliente": "...",
+  "pedido": "...",
+  "vendedor": "...",
+  "activador": "...",
+  "tc_fijar": 1234.50,
+  "tc_original": 1200.00,
+  "accion": "texto de acción corto",
+  "detalle": "quién confirmó qué y cuándo",
+  "fecha": "DD/MM/AAAA"
+}]`;
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': CLAUDE_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!r.ok) throw new Error(`Error IA: ${r.status}`);
+  const data = await r.json();
+  const text = data.content?.[0]?.text || '[]';
+  try {
+    const clean = text.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean).filter(x => !x.ignorar);
+  } catch(e) {
+    console.error('Parse error:', text);
+    return [];
+  }
+}
+
+// ── FILTER ────────────────────────────────────────────
+function setFilter(f) {
+  if (activeFilter === f) {
+    activeFilter = 'all';
+  } else {
+    activeFilter = f;
+  }
+  document.querySelectorAll('.stat').forEach(s => s.classList.remove('active-filter'));
+  if (activeFilter !== 'all') {
+    const el = document.getElementById('filter-' + activeFilter);
+    if (el) el.classList.add('active-filter');
+  }
+  if (window._tcItems) renderCards(window._tcItems);
+}
+
+// ── RENDER ────────────────────────────────────────────
+function renderCards(items) {
+  const grupos = {
+    conflict: { label:'⚡ Requieren atención', items:[] },
+    warn:     { label:'⚠ Listos con corrección de TC', items:[] },
+    ok:       { label:'✓ Listos para fijar en Nodum', items:[] },
+    pending:  { label:'○ Esperando OK del activador', items:[] }
+  };
+
+  items.forEach(r => { if (grupos[r.estado]) grupos[r.estado].items.push(r); });
+
+  const nOk = grupos.ok.items.length + grupos.warn.items.length;
+  document.getElementById('n-ok').textContent = nOk;
+  document.getElementById('n-warn').textContent = grupos.warn.items.length;
+  document.getElementById('n-conflict').textContent = grupos.conflict.items.length;
+  document.getElementById('n-pending').textContent = grupos.pending.items.length;
+
+  window._tcItems = items; // store globally for click handler
+  let html = '';
+  const showAll = activeFilter === 'all';
+  ['conflict','warn','ok','pending'].forEach(est => {
+    const g = grupos[est];
+    if (!g.items.length) return;
+    if (!showAll && est !== activeFilter) return;
+    html += `<div class="section-title">${g.label} (${g.items.length})</div><div class="cards">`;
+    g.items.forEach((item, idx) => {
+      const globalIdx = items.indexOf(item);
+      const tc = item.tc_fijar ? item.tc_fijar.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+      const tcClass = est==='warn'?'warn':est==='pending'?'pending':'';
+      const dotClass = est==='ok'||est==='warn'?'ok':est;
+      const accionClass = est==='ok'?'ok':est;
+      const tcOriginal = (est==='warn' && item.tc_original && item.tc_original !== item.tc_fijar)
+        ? `<div class="tc-original">${item.tc_original.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>` : '';
+      html += `
+      <div class="card" onclick="openDetail(this, ${globalIdx})" style="cursor:pointer">
+        <div class="dot ${dotClass}"></div>
+        <div class="card-main">
+          <div class="card-top">
+            <span class="cliente">${item.cliente || '—'}</span>
+            ${item.pedido ? `<span class="pedido">Pedido ${item.pedido}</span>` : ''}
+            ${item.vendedor ? `<span class="vendedor">${item.vendedor}</span>` : ''}
+          </div>
+          <div class="accion ${accionClass}">${item.accion || ''}</div>
+          <div class="meta">${item.activador ? item.activador+' · ' : ''}${item.detalle || ''}</div>
+        </div>
+        <div class="tc-box">
+          <div class="tc-val ${tcClass}">${tc}</div>
+          ${tcOriginal}
+          <div class="tc-lbl">TC a fijar</div>
+          ${item.fecha ? `<div class="tc-lbl" style="margin-top:0.3rem">${item.fecha}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  document.getElementById('main').innerHTML = html || '<div class="empty">No se encontraron solicitudes de fijación de TC.</div>';
+}
+
+// ── DETAIL PANEL ────────────────────────────────────
+function openDetail(el, idx) {
+  const item = window._tcItems[idx];
+  // Remove existing panel
+  const existing = document.getElementById('detail-panel');
+  if (existing) existing.remove();
+  if (el._panelOpen) { el._panelOpen = false; return; }
+  document.querySelectorAll('.card').forEach(c => c._panelOpen = false);
+  el._panelOpen = true;
+
+  const tc = item.tc_fijar ? item.tc_fijar.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const panel = document.createElement('div');
+  panel.id = 'detail-panel';
+  panel.style.cssText = 'position:fixed;top:0;right:0;width:380px;height:100vh;background:#161616;border-left:1px solid #2a2a2a;overflow-y:auto;z-index:100;padding:1.5rem;display:flex;flex-direction:column;gap:1rem;';
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #2a2a2a;padding-bottom:1rem">
+      <span style="font-family:Fraunces,serif;font-size:1.1rem;font-weight:300">${item.cliente || '—'}</span>
+      <button onclick="document.getElementById('detail-panel').remove()" style="background:transparent;border:1px solid #2a2a2a;color:#555;padding:0.3rem 0.7rem;font-family:DM Mono,monospace;font-size:0.65rem;cursor:pointer;border-radius:3px;">✕ cerrar</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.7rem;font-size:0.68rem;">
+      <div style="display:flex;justify-content:space-between"><span style="color:#555">Pedido</span><span>${item.pedido || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:#555">Vendedor</span><span>${item.vendedor || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:#555">Activador</span><span>${item.activador || '—'}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:#555">TC a fijar</span><span style="font-size:1rem;color:#c8f135">${tc}</span></div>
+      ${item.tc_original && item.tc_original !== item.tc_fijar ? `<div style="display:flex;justify-content:space-between"><span style="color:#555">TC original</span><span style="color:#facc15">${item.tc_original}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between"><span style="color:#555">Fecha</span><span>${item.fecha || '—'}</span></div>
+    </div>
+    <div style="border-top:1px solid #2a2a2a;padding-top:0.8rem">
+      <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.08em;color:#555;margin-bottom:0.5rem">Análisis del hilo</div>
+      <div style="font-size:0.68rem;color:#94a3b8;line-height:1.7;background:#1e1e1e;padding:0.8rem;border-radius:4px">${item.detalle || '—'}</div>
+    </div>
+    ${item.estado !== 'pending' ? `
+    <button onclick="navigator.clipboard.writeText('Fijado!!').then(()=>{this.textContent='✓ copiado';setTimeout(()=>this.textContent='copiar \'Fijado!!\'',2000)})" style="background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.3);padding:0.7rem;font-family:DM Mono,monospace;font-size:0.68rem;cursor:pointer;border-radius:4px;width:100%">copiar "Fijado!!"</button>
+    <button onclick="enviarFijado(${idx})" style="background:rgba(200,241,53,0.1);color:#c8f135;border:1px solid rgba(200,241,53,0.3);padding:0.7rem;font-family:DM Mono,monospace;font-size:0.68rem;cursor:pointer;border-radius:4px;width:100%;margin-top:0.4rem">✉ abrir mail de confirmación</button>
+    ` : ''}
+  `;
+  document.body.appendChild(panel);
+}
+
+// ── ENVIAR FIJADO ────────────────────────────────────
+function enviarFijado(idx) {
+  const item = window._tcItems[idx];
+  if (!item) return;
+  const tc = item.tc_fijar ? item.tc_fijar.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  const subject = encodeURIComponent(`RE: FIJACION TC - ${item.cliente} - Pedido ${item.pedido || ''}`);
+  const body = encodeURIComponent(
+    `Fijado!!
+
+Cliente: ${item.cliente || '—'}
+Pedido: ${item.pedido || '—'}
+TC fijado: ${tc}
+Fecha: ${item.fecha || '—'}
+
+---
+Sandra Galeano
+SAC – Servicio de Atención al Cliente Interno
+Petrolera Copsa`
+  );
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
+  window.open(gmailUrl, '_blank');
+}
+
+// ── INIT ──────────────────────────────────────────────
+checkAuth();
+</script>
+</body>
+</html>
